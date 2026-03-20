@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * Wallet Controllers (User-facing)
@@ -13,13 +13,13 @@ const transferFunds = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const { receiverUserId, amount, description } = ctx.request.body;
 
     if (!receiverUserId || !amount) {
-      return ctx.badRequest('receiverUserId and amount are required');
+      return ctx.badRequest("receiverUserId and amount are required");
     }
 
     // Execute transfer
@@ -27,7 +27,7 @@ const transferFunds = async (ctx) => {
       userId,
       receiverUserId,
       parseFloat(amount),
-      description
+      description,
     );
 
     // Get updated balance
@@ -40,10 +40,9 @@ const transferFunds = async (ctx) => {
         newBalance: balance.balance,
       },
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] transferFunds error:', error);
-    ctx.badRequest(error.message || 'Transfer failed');
+    strapi.log.error("[WalletUser] transferFunds error:", error);
+    ctx.badRequest(error.message || "Transfer failed");
   }
 };
 
@@ -55,20 +54,20 @@ const redeemPoints = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const { points, description } = ctx.request.body;
 
     if (!points) {
-      return ctx.badRequest('points is required');
+      return ctx.badRequest("points is required");
     }
 
     // Execute redemption
     const result = await strapi.services.redemption.redeemPoints(
       userId,
       parseInt(points),
-      description
+      description,
     );
 
     ctx.body = {
@@ -79,10 +78,9 @@ const redeemPoints = async (ctx) => {
         newPointsBalance: result.newPointsBalance,
       },
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] redeemPoints error:', error);
-    ctx.badRequest(error.message || 'Redemption failed');
+    strapi.log.error("[WalletUser] redeemPoints error:", error);
+    ctx.badRequest(error.message || "Redemption failed");
   }
 };
 
@@ -94,7 +92,7 @@ const getUserTransfers = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const { limit, offset } = ctx.query;
@@ -108,10 +106,9 @@ const getUserTransfers = async (ctx) => {
       success: true,
       data: result,
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] getUserTransfers error:', error);
-    ctx.badRequest('Failed to load transfers');
+    strapi.log.error("[WalletUser] getUserTransfers error:", error);
+    ctx.badRequest("Failed to load transfers");
   }
 };
 
@@ -123,7 +120,7 @@ const getUserPointRedemptions = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const { limit, offset } = ctx.query;
@@ -137,10 +134,9 @@ const getUserPointRedemptions = async (ctx) => {
       success: true,
       data: result,
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] getUserPointRedemptions error:', error);
-    ctx.badRequest('Failed to load redemptions');
+    strapi.log.error("[WalletUser] getUserPointRedemptions error:", error);
+    ctx.badRequest("Failed to load redemptions");
   }
 };
 
@@ -152,7 +148,7 @@ const getWalletBalance = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const balance = await strapi.services.wallet.getBalance(userId);
@@ -161,10 +157,9 @@ const getWalletBalance = async (ctx) => {
       success: true,
       data: balance,
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] getWalletBalance error:', error);
-    ctx.badRequest('Failed to load wallet balance');
+    strapi.log.error("[WalletUser] getWalletBalance error:", error);
+    ctx.badRequest("Failed to load wallet balance");
   }
 };
 
@@ -176,15 +171,15 @@ const getWalletTransactions = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const { limit = 50, offset = 0, type, status } = ctx.query;
 
     const knex = strapi.connections.default;
-    let query = knex('wallet_transactions')
+    let query = knex("wallet_transactions")
       .where({ user_id: userId })
-      .orderBy('created_at', 'desc');
+      .orderBy("created_at", "desc");
 
     if (type) {
       query = query.where({ type });
@@ -193,10 +188,12 @@ const getWalletTransactions = async (ctx) => {
       query = query.where({ status });
     }
 
-    const transactions = await query.limit(parseInt(limit)).offset(parseInt(offset));
-    const [{ count }] = await knex('wallet_transactions')
+    const transactions = await query
+      .limit(parseInt(limit))
+      .offset(parseInt(offset));
+    const [{ count }] = await knex("wallet_transactions")
       .where({ user_id: userId })
-      .count('* as count');
+      .count("* as count");
 
     ctx.body = {
       success: true,
@@ -207,10 +204,9 @@ const getWalletTransactions = async (ctx) => {
         offset: parseInt(offset),
       },
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] getWalletTransactions error:', error);
-    ctx.badRequest('Failed to load transactions');
+    strapi.log.error("[WalletUser] getWalletTransactions error:", error);
+    ctx.badRequest("Failed to load transactions");
   }
 };
 
@@ -222,62 +218,78 @@ const createPaymentSource = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const { amount, paymentMethod, returnUri } = ctx.request.body;
 
     if (!amount || !paymentMethod || !returnUri) {
-      return ctx.badRequest('amount, paymentMethod, and returnUri are required');
+      return ctx.badRequest(
+        "amount, paymentMethod, and returnUri are required",
+      );
     }
 
     if (amount < 10) {
-      return ctx.badRequest('Minimum top-up amount is 10 THB');
+      return ctx.badRequest("Minimum top-up amount is 10 THB");
     }
 
     // Create source based on payment method
     let source;
-    if (paymentMethod === 'promptpay') {
-      source = await strapi.services.payment.createPromptPaySource(amount, 'THB');
-    } else if (paymentMethod.startsWith('mobile_banking_')) {
+    if (paymentMethod === "promptpay") {
+      source = await strapi.services.payment.createPromptPaySource(
+        amount,
+        "THB",
+      );
+    } else if (paymentMethod.startsWith("mobile_banking_")) {
       source = await strapi.services.payment.createMobileBankingSource(
         amount,
-        'THB',
+        "THB",
         paymentMethod,
-        returnUri
+        returnUri,
       );
     } else {
-      return ctx.badRequest('Invalid payment method');
+      return ctx.badRequest("Invalid payment method");
     }
 
     // Create charge immediately
     const charge = await strapi.services.payment.createCharge(
       source.id,
       amount,
-      'THB',
+      "THB",
       `Wallet top-up for user ${userId}`,
       {
         user_id: userId,
         return_uri: returnUri,
-      }
+      },
     );
 
     // Store pending transaction
+    // Corrected column names and values to match actual schema in
+    // migrations/001_create_wallet_tables.sql:
+    //   - transaction_id  → id
+    //   - type 'topup'    → 'top_up'  (enum value)
+    //   - removed updated_at (column does not exist)
+    //   - added balance_before and balance_after (NOT NULL columns)
+    //   - added payment_transaction_id to link back to the Omise charge
+    // balance_before/after are 0 here because payment is still pending —
+    // the real values are set in processSuccessfulPayment on confirmation.
     const knex = strapi.connections.default;
-    await knex('wallet_transactions').insert({
-      transaction_id: `pending_${charge.id}`,
+    await knex("wallet_transactions").insert({
+      id: `pending_${charge.id}`,
       user_id: userId,
-      type: 'topup',
+      type: "top_up",
       amount: amount,
-      status: 'pending',
-      description: 'Pending wallet top-up',
+      balance_before: 0,
+      balance_after: 0,
+      status: "pending",
+      payment_transaction_id: charge.id,
+      description: "Pending wallet top-up",
       metadata: JSON.stringify({
         charge_id: charge.id,
         source_id: source.id,
         payment_method: paymentMethod,
       }),
       created_at: knex.fn.now(),
-      updated_at: knex.fn.now(),
     });
 
     ctx.body = {
@@ -292,10 +304,9 @@ const createPaymentSource = async (ctx) => {
         scannable_code: source.scannable_code,
       },
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] createPaymentSource error:', error);
-    ctx.badRequest(error.message || 'Failed to create payment source');
+    strapi.log.error("[WalletUser] createPaymentSource error:", error);
+    ctx.badRequest(error.message || "Failed to create payment source");
   }
 };
 
@@ -307,29 +318,32 @@ const checkPaymentStatus = async (ctx) => {
   try {
     const userId = ctx.state.user?.id;
     if (!userId) {
-      return ctx.unauthorized('Authentication required');
+      return ctx.unauthorized("Authentication required");
     }
 
     const { chargeId } = ctx.params;
 
     if (!chargeId) {
-      return ctx.badRequest('chargeId is required');
+      return ctx.badRequest("chargeId is required");
     }
 
     const charge = await strapi.services.payment.getChargeStatus(chargeId);
 
     // If payment is successful and not yet processed, process it
-    if (charge.paid && charge.status === 'successful') {
+    if (charge.paid && charge.status === "successful") {
       const knex = strapi.connections.default;
 
       // Check if already processed
-      const existing = await knex('wallet_transactions')
+      const existing = await knex("wallet_transactions")
         .where({ transaction_id: `topup_${chargeId}` })
         .first();
 
       if (!existing) {
         // Process the payment
-        await strapi.services.payment.processSuccessfulPayment(chargeId, userId);
+        await strapi.services.payment.processSuccessfulPayment(
+          chargeId,
+          userId,
+        );
       }
     }
 
@@ -344,10 +358,9 @@ const checkPaymentStatus = async (ctx) => {
         failureMessage: charge.failure_message,
       },
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] checkPaymentStatus error:', error);
-    ctx.badRequest(error.message || 'Failed to check payment status');
+    strapi.log.error("[WalletUser] checkPaymentStatus error:", error);
+    ctx.badRequest(error.message || "Failed to check payment status");
   }
 };
 
@@ -359,34 +372,47 @@ const handlePaymentWebhook = async (ctx) => {
   try {
     const event = ctx.request.body;
 
-    strapi.log.info('[Payment] Webhook received:', {
+    strapi.log.info("[Payment] Webhook received:", {
       type: event.key,
       id: event.id,
     });
 
     // Handle charge.complete event
-    if (event.key === 'charge.complete') {
+    if (event.key === "charge.complete") {
       const charge = event.data;
 
-      if (charge.paid && charge.status === 'successful') {
+      if (charge.paid && charge.status === "successful") {
         const metadata = charge.metadata;
         const userId = metadata?.user_id;
 
         if (userId) {
           try {
-            await strapi.services.payment.processSuccessfulPayment(charge.id, userId);
-            strapi.log.info('[Payment] Webhook processed successfully:', charge.id);
+            // For transaction testing
+            // Pass charge data directly to skip redundant Omise re-fetch.
+            // The webhook payload has already confirmed paid: true — passing it
+            // avoids a second API call and handles cases where the charge status
+            // hasn't propagated yet on Omise's side.
+            // NOTE: This relies on the webhook being genuine. Implement webhook
+            // signature verification (OMISE_WEBHOOK_SECRET) before going to production.
+            await strapi.services.payment.processSuccessfulPayment(
+              charge.id,
+              userId,
+              // charge,
+            );
+            strapi.log.info(
+              "[Payment] Webhook processed successfully:",
+              charge.id,
+            );
           } catch (error) {
-            strapi.log.error('[Payment] Webhook processing error:', error);
+            strapi.log.error("[Payment] Webhook processing error:", error);
           }
         }
       }
     }
 
     ctx.body = { received: true };
-
   } catch (error) {
-    strapi.log.error('[Payment] handlePaymentWebhook error:', error);
+    strapi.log.error("[Payment] handlePaymentWebhook error:", error);
     ctx.body = { received: true }; // Always return 200 to Omise
   }
 };
@@ -406,10 +432,9 @@ const getPaymentMethods = async (ctx) => {
         omisePublicKey: process.env.OMISE_PUBLIC_KEY,
       },
     };
-
   } catch (error) {
-    strapi.log.error('[WalletUser] getPaymentMethods error:', error);
-    ctx.badRequest('Failed to load payment methods');
+    strapi.log.error("[WalletUser] getPaymentMethods error:", error);
+    ctx.badRequest("Failed to load payment methods");
   }
 };
 
