@@ -6,8 +6,15 @@
  */
 
 const omise = require('omise')({
+// publicKey is required alongside secretKey.
+// The Omise SDK routes source creation (PromptPay, mobile banking) through
+// publicKey, while charges and refunds use secretKey. Without publicKey,
+// omise.sources.create() sends an empty auth header and Omise returns
+// "authentication failed". See: node_modules/omise/lib/resources/Source.js
+const omise = require("omise")({
   secretKey: process.env.OMISE_SECRET_KEY,
-  omiseVersion: '2019-05-29',
+  publicKey: process.env.OMISE_PUBLIC_KEY,
+  omiseVersion: "2019-05-29",
 });
 
 module.exports = {
@@ -112,9 +119,15 @@ module.exports = {
   /**
    * Process successful payment and credit wallet
    */
-  async processSuccessfulPayment(chargeId, userId) {
+  // Added optional chargeData parameter.
+  // When called from the webhook handler, the charge has already been verified
+  // by Omise's event payload — re-fetching is redundant. Passing chargeData
+  // skips the extra API call. When called from checkPaymentStatus (no chargeData),
+  // it still fetches from Omise as before to confirm the charge is truly paid.
+  async processSuccessfulPayment(chargeId, userId, chargeData = null) {
     try {
       const charge = await this.getChargeStatus(chargeId);
+      // const charge = chargeData || (await this.getChargeStatus(chargeId));
 
       if (!charge.paid) {
         throw new Error('Charge is not paid');
@@ -127,27 +140,62 @@ module.exports = {
       const transactionId = `topup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       await knex.transaction(async (trx) => {
+        // Auto-create wallet row if user has never topped up before.
+        // The wallets table requires a row per user — without this, the balance
+        // increment below would silently affect 0 rows.
+        let wallet = await trx("wallets").where({ user_id: userId }).first();
+        if (!wallet) {
+          await trx("wallets").insert({
+            user_id: userId,
+            balance: 0,
+            pending_balance: 0,
+            frozen_balance: 0,
+            status: "active",
+          });
+          wallet = await trx("wallets").where({ user_id: userId }).first();
+        }
+
+        const balanceBefore = parseFloat(wallet.balance);
+        const balanceAfter = balanceBefore + amount;
+
         // Credit wallet
         await trx('wallets')
           .where({ user_id: userId })
-          .increment('balance', amount)
-          .update('updated_at', knex.fn.now());
+          // .increment('balance', amount)
+          // .update('updated_at', knex.fn.now());
+          .update({ balance: balanceAfter, updated_at: knex.fn.now() });
 
         // Record transaction
-        await trx('wallet_transactions').insert({
-          transaction_id: transactionId,
+        // await trx('wallet_transactions').insert({
+          // transaction_id: transactionId,
+
+        // Corrected column names and values to match actual schema in
+        // migrations/001_create_wallet_tables.sql:
+        //   - transaction_id  → id
+        //   - type 'topup'    → 'top_up'  (enum value)
+        //   - removed updated_at (column does not exist)
+        //   - added balance_before and balance_after (NOT NULL columns)
+        //   - added payment_transaction_id (replaces the old transaction_id semantic)
+        await trx("wallet_transactions").insert({
+          id: transactionId,
           user_id: userId,
-          type: 'topup',
+          type: "top_up",
+          // type: 'topup',
           amount: amount,
-          status: 'completed',
-          description: `Wallet top-up via ${charge.source?.type || 'payment'}`,
+          // status: 'completed',
+          // description: `Wallet top-up via ${charge.source?.type || 'payment'}`,
+          balance_before: balanceBefore,
+          balance_after: balanceAfter,
+          status: "completed",
+          payment_transaction_id: chargeId,
+          description: `Wallet top-up via ${charge.source?.type || "payment"}`,
           metadata: JSON.stringify({
             charge_id: chargeId,
             source_type: charge.source?.type,
             payment_method: charge.source?.type,
           }),
           created_at: knex.fn.now(),
-          updated_at: knex.fn.now(),
+          // updated_at: knex.fn.now(),
         });
 
         strapi.log.info('[Payment] Wallet credited successfully:', {
